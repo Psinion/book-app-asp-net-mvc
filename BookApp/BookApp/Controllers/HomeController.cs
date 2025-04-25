@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using BookApp.Data.EF.Access.Contexts;
+using BookApp.DataGenerators;
 using Microsoft.AspNetCore.Mvc;
 using BookApp.Models;
 
@@ -18,6 +19,8 @@ public class HomeController : Controller
 
     public async Task<IActionResult> Index()
     {
+        await DataGenerator.CreateTagsForBooks(mainDbContext);
+        
         return View();
     }
 

@@ -29,5 +29,19 @@ public class MainDbContext : DbContext
             .HasOne(ba => ba.Author)
             .WithMany(b => b.BooksLink)
             .HasForeignKey(ba => ba.AuthorId);
+        
+        modelBuilder.Entity<Book>()
+            .HasMany(b => b.Tags)
+            .WithMany(t => t.Books)
+            .UsingEntity<Dictionary<string, object>>(
+                "BookTag",
+                j => j.HasOne<Tag>().WithMany().HasForeignKey("TagId"),
+                j => j.HasOne<Book>().WithMany().HasForeignKey("BookId"),
+                j => j.ToTable("BookTags")
+            );
+
+        modelBuilder.Entity<Tag>()
+            .HasIndex(t => t.Name)
+            .IsUnique();
     }
 }

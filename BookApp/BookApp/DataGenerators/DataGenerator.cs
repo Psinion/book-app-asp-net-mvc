@@ -31,6 +31,17 @@ public static class DataGenerator
         
         return authors.Generate(count);
     }
+    
+    public static List<Review> GenerateReviews(int count)
+    {
+        var reviews = new Faker<Review>()
+                .RuleFor(x => x.VoterName, f => f.Person.FirstName)
+                .RuleFor(x => x.NumStars, f => f.Random.Int(1, 5))
+                .RuleFor(x => x.Comment, f => f.Lorem.Sentence(f.Random.Int(2, 30)))
+            ;
+        
+        return reviews.Generate(count);
+    }
 
     public static async Task CreateBooks(MainDbContext context)
     {
@@ -70,8 +81,98 @@ public static class DataGenerator
                 }
                 attempts++;
             }
+        }
+
+        await context.SaveChangesAsync();
+    }
+    
+    public static async Task CreateReviewsForBooks(MainDbContext context)
+    {
+        var reviews = GenerateReviews(1000);
+        var reviewsCount = reviews.Count;
+        var bookService = new BooksService(context);
+        
+        var random = new Random();
+        
+        var books = await bookService.GetAllBooksTracked();
+        foreach (var book in books)
+        {
+            var reviewsCountForBook = random.Next(0, 10);
+            var reviewIndex = 0;
             
+            while (reviewIndex < reviewsCountForBook)
+            {
+                var randomReview = reviews[random.Next(reviewsCount)];
+                book.Reviews.Add(randomReview);
+                reviewIndex++;
+            }
+        }
+
+        await context.SaveChangesAsync();
+    }
+    
+    public static async Task CreatePriceOfferForBooks(MainDbContext context)
+    {
+        var bookService = new BooksService(context);
+        
+        var random = new Random();
+        
+        var books = await bookService.GetAllBooksTracked();
+        foreach (var book in books)
+        {
+            var chance = random.Next(0, 10);
+            if (chance < 0.3f)
+            {
+                var priceOffer = new Faker<PriceOffer>()
+                        .RuleFor(x => x.NewPrice, f => f.Random.Decimal(50, book.Price / 2))
+                        .RuleFor(x => x.PromotionalText, f => f.Lorem.Sentence(f.Random.Int(1, 4)))
+                    ;
+                book.Promotion = priceOffer;
+            }
+        }
+
+        await context.SaveChangesAsync();
+    }
+    
+    public static async Task CreateTagsForBooks(MainDbContext context)
+    {
+        var tagsService = new TagsService(context);
+        var bookService = new BooksService(context);
+        
+        var random = new Random();
+
+        var tagsDictionary = new Dictionary<string, Tag>();
+        
+        var tags = new Faker<Tag>()
+                .RuleFor(x => x.Name, f => f.Lorem.Sentence(f.Random.Int(1, 2)))
+                .Generate(30)
+            ;
+        foreach (var tag in tags)
+        {
+            tagsDictionary.TryAdd(tag.Name, tag);
+        }
+
+        await tagsService.AddTags(tagsDictionary.Values.ToList());
+        
+        var savedTags = context.Tags.ToList();
+        
+        var books = await bookService.GetAllBooksTracked();
+        foreach (var book in books)
+        {
+            var tagsIds = new List<long>(3);
+            var tagsCount = random.Next(1, 3);
+            var tagIndex = 0;
             
+            while (tagIndex < tagsCount)
+            {
+                var tagToAdd = savedTags[random.Next(0, savedTags.Count)];
+                if (!tagsIds.Contains(tagToAdd.Id))
+                {
+                    tagsIds.Add(tagToAdd.Id);
+                    book.Tags.Add(tagToAdd);
+                    tagIndex++;
+                }
+            }
         }
 
         await context.SaveChangesAsync();
